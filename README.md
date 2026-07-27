@@ -63,11 +63,11 @@ SHAP analysis on high-degradation moments consistently surfaces heavy braking, d
 ## Repo Structure
 
 ```
-├── Practicum_Final_Submission.pdf   # Full write-up: methodology, label design, EDA, results, limitations
+├── practicum_final_submission.pdf   # Full write-up: methodology, label design, EDA, results, limitations
 ├── notebooks/
 │   ├── 01_eda.ipynb                 # Signal validation, degradation-label EDA, feature correlation analysis
-│   ├── 02_initial_model_build.ipynb # Feature engineering + first-pass model training across 5 model families
-│   ├── 03_shap_driver_feedback.ipynb# SHAP-based interpretability layer / driver feedback tool
+│   ├── 02_model_build.ipynb 		 # Feature engineering + first-pass model training across 5 model families
+│   ├── 03_driver_feedback_poc.ipynb # SHAP-based interpretability layer / driver feedback tool
 │   └── 04_final_model_tuning.ipynb  # LOSO-CV, hyperparameter tuning, final model selection & evaluation
 ├── data/
 │   └── sample_stint.csv             # One sample driving stint (post-cleanup) for reference — see note below
