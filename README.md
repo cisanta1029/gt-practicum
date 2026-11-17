@@ -1,30 +1,30 @@
 # From Simulation to Strategy: Predicting Racing Tire Degradation
 
-**Georgia Tech M.S. Analytics — Practicum, 2025**
+**Georgia Tech M.S. Analytics Practicum, 2025**
 Carlos I. Santa
 
-[📄 Full Report (PDF)](./Practicum_Final_Submission.pdf)
+[📄 Full Report (PDF)](./practicum_final_submission.pdf)
 
 ---
 
 ## Overview
 
-Tire degradation is one of the most consequential — and least observable — variables in motorsport strategy. There's no sensor that outputs "% grip remaining." This project builds one from telemetry alone.
+Tire wear drives a lot of race strategy, but you can't measure it directly. No sensor reports how much grip a tire has left. I wanted to see whether I could estimate it from telemetry instead.
 
-Using ~225 minutes of 360Hz telemetry recorded from a Porsche 911 GT3 Cup at Laguna Seca (iRacing), I:
+I recorded about 225 minutes of 360Hz telemetry driving a Porsche 911 GT3 Cup at Laguna Seca in iRacing, then:
 
-- **Engineered a composite degradation label from first principles** — no ground-truth wear measurement exists in racing telemetry, so I built one from four physics-grounded components (frictional power, asymmetric load, thermal aging, transient heat spikes), each independently validated against literature and calibrated through controlled test sessions.
-- **Diagnosed and fixed a data leakage problem** that was inflating validation performance, by building a session-level "Leave-One-Session-Out" cross-validation scheme.
-- **Trained and compared 5 model families** (Random Forest, XGBoost, Ridge, SVR, KNN), then chose XGBoost over the marginally higher-performing Random Forest for a 450x speed advantage — a deliberate accuracy/latency tradeoff aimed at real-time deployment.
-- **Used SHAP to turn the model into a coaching tool**, surfacing which specific driver inputs (braking, throttle lift, lateral G) drive degradation moment-to-moment, not just in aggregate.
+- **Built the degradation label myself.** Telemetry has no ground-truth wear measurement, so I combined four physics-based components (frictional power, asymmetric load, thermal aging and transient heat spikes). I checked each one against the literature and calibrated it with controlled test sessions.
+- **Found and fixed data leakage.** My first validation scores were too good, because laps from the same session ended up in both training and test sets. I switched to leave-one-session-out cross-validation, so every test is on a session the model has never seen.
+- **Compared five model families:** Random Forest, XGBoost, Ridge, SVR and KNN. Random Forest scored slightly higher, but XGBoost trained about 450 times faster, and speed matters if this is ever going to run in real time. I chose XGBoost.
+- **Used SHAP to turn the model into feedback a driver can use.** SHAP shows which inputs (braking, throttle lift, lateral G) are driving wear at a given moment, not just on average.
 
 **Final model: XGBoost, R² = 0.92 on a fully held-out session.**
 
 ---
 
-## Why this matters
+## Why I built it this way
 
-Most tire models in the literature are physics-simulation-based (Pacejka's Magic Formula and its derivatives) and require inputs that are impractical to measure in real time, and they don't directly connect wear to *driver behavior*. This project takes a different angle: can degradation be learned directly from telemetry in a way that's fast enough and interpretable enough to hand back to a driver mid-session? The proof-of-concept says yes.
+Most tire models in the literature are physics simulations, like Pacejka's Magic Formula and its variants. They need inputs that are hard to measure in real time, and they don't tie wear back to what the driver is doing. I wanted to know whether wear could be learned straight from telemetry, fast enough and clearly enough to give feedback to a driver during a session. This proof of concept suggests it can.
 
 ---
 
@@ -38,15 +38,15 @@ Most tire models in the literature are physics-simulation-based (Pacejka's Magic
 | Ridge | 0.661 | 0.050 | 0.066 | 4.06 | 0.02s |
 | SVR | 0.676 | 0.052 | 0.064 | 5.32 | 108.2s |
 
-Final tuned XGBoost model on a fully unseen test session: **R² = 0.92, MAE = 0.024, MAPE = 1.65%**
+The tuned XGBoost model on a fully unseen test session: **R² = 0.92, MAE = 0.024, MAPE = 1.65%**
 
 <p align="center">
-  <img src="./assets/predicted_vs_actual.png" width="500" alt="Predicted vs actual degradation, tight clustering around the ideal line">
+  <img src="./assets/predicted_vs_actual.png" width="500" alt="Predicted vs actual degradation, tightly clustered around the ideal line">
 </p>
 
-### What actually drives degradation
+### What drives degradation
 
-SHAP analysis on high-degradation moments consistently surfaces heavy braking, dropping lateral G (a symptom of grip loss under cornering), and abrupt throttle lift as the dominant contributors — turning the model from a black box into a diagnostic tool a driver or engineer could actually act on.
+In the high-wear moments, SHAP keeps pointing to the same three things: heavy braking, a drop in lateral G (a sign the tires are losing grip in corners) and abrupt throttle lifts. That gives a driver or engineer something specific to work on, instead of a single wear number.
 
 <p align="center">
   <img src="./assets/shap_violin_plot.png" width="500" alt="SHAP violin plot of feature contributions during high-degradation moments">
@@ -65,24 +65,24 @@ SHAP analysis on high-degradation moments consistently surfaces heavy braking, d
 ```
 ├── practicum_final_submission.pdf   # Full write-up: methodology, label design, EDA, results, limitations
 ├── notebooks/
-│   ├── 01_eda.ipynb                 # Signal validation, degradation-label EDA, feature correlation analysis
-│   ├── 02_model_build.ipynb 		 # Feature engineering + first-pass model training across 5 model families
-│   ├── 03_driver_feedback_poc.ipynb # SHAP-based interpretability layer / driver feedback tool
-│   └── 04_final_model_tuning.ipynb  # LOSO-CV, hyperparameter tuning, final model selection & evaluation
+│   ├── 01_eda.ipynb                 # Signal validation, degradation-label EDA, feature correlations
+│   ├── 02_model_build.ipynb         # Feature engineering and first-pass training across 5 model families
+│   ├── 03_driver_feedback_poc.ipynb # SHAP interpretability layer and driver feedback tool
+│   └── 04_final_model_tuning.ipynb  # LOSO-CV, hyperparameter tuning, final model selection and evaluation
 ├── data/
-│   └── sample_stint.csv             # One sample driving stint (post-cleanup) for reference — see note below
+│   └── sample_stint.csv             # One cleaned driving stint for reference (see below)
 └── assets/                          # Figures used in this README
 ```
 
-## A note on the data
+## About the data
 
-Raw telemetry is recorded by iRacing in a proprietary `.ibt` format at 360Hz across 270 channels — there's no clean export path to a usable CSV, so getting from raw recording to model-ready data required a fair amount of custom parsing and cleanup (downsampling to 12Hz, anomaly filtering, slope/elevation correction, etc.), all of which is detailed in the report.
+iRacing saves telemetry in its own `.ibt` format: 360Hz across 270 channels, with no clean way to export it to CSV. Getting it model-ready took a lot of custom parsing and cleanup, including downsampling to 12Hz, filtering anomalies and correcting for slope and elevation. The report covers all of it.
 
-Full session files are large (~1GB each, 10 sessions) and specific to this car/track/setup combination, so they aren't included here. Instead, `data/sample_stint.csv` includes one cleaned single-stint file so the notebooks can be run and inspected end-to-end without needing to reproduce the original telemetry pipeline.
+The full session files are about 1GB each (10 sessions) and specific to this car, track and setup, so they aren't in the repo. `data/sample_stint.csv` is one cleaned stint, so you can run the notebooks end to end without rebuilding the telemetry pipeline.
 
 ## Limitations
 
-This is explicitly a proof of concept, not a generalized tire model. It's fit to one driver, one car, one track, and one setup, and the degradation label itself is a physics-informed proxy rather than a ground-truth measurement. The full report (Section 10) goes into more depth on this, along with confounders like fuel-burn weight loss and driver learning curve across a session, and what a next iteration would need (multiple drivers, cars, and tracks; a low-latency real-time pipeline; a revisited label design).
+This is a proof of concept, not a general tire model. It's fit to one driver, one car, one track and one setup, and the degradation label is a physics-based estimate, not a real wear measurement. Section 10 of the report covers this in more depth, including confounders like the car getting lighter as fuel burns off and the driver improving over a session. It also describes what a next version would need: more drivers, cars and tracks, a low-latency real-time pipeline, and a second look at the label design.
 
 ## Tech Stack
 
@@ -90,4 +90,4 @@ Python · pandas · scikit-learn · XGBoost · SHAP · matplotlib/seaborn
 
 ---
 
-*Built as part of the M.S. Analytics program at Georgia Tech. Questions or feedback welcome — feel free to open an issue.*
+*Built for the M.S. Analytics program at Georgia Tech. Questions or feedback are welcome, so feel free to open an issue.*
